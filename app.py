@@ -21,13 +21,8 @@ batch_size = 8
 
 # Function to update and overwrite class_names.json with current classes
 def update_and_overwrite_class_names():
-    # Get the list of current class names from the directories
     all_classes = [d for d in os.listdir(train_dir) if os.path.isdir(os.path.join(train_dir, d))]
-    
-    # Create a new class names dictionary
     class_names = {cls: i for i, cls in enumerate(all_classes)}
-
-    # Write the updated class names to class_names.json, overwriting if it exists
     with open('class_names.json', 'w') as f:
         json.dump(class_names, f, indent=4)
 
@@ -39,16 +34,12 @@ def create_folders(class_name):
 
 # Function to create required folders if they don't exist
 def create_required_folders():
-    # List of all directories to create
     directories = [train_dir, valid_dir, test_dir]
-    
-    # Create train, valid, and test folders if they don't exist
     for directory in directories:
         if not os.path.exists(directory):
             os.makedirs(directory)
             st.write(f"Created directory: {directory}")
 
-    # Optionally, check for subdirectories in each directory if needed
     all_classes = [d for d in os.listdir(train_dir) if os.path.isdir(os.path.join(train_dir, d))]
     for class_name in all_classes:
         create_folders(class_name)
@@ -73,10 +64,12 @@ def augment_image(image, count=30):
     return augmented_images
 
 # Save images to respective folders
-def save_images(images, class_name):
+def save_images(original_image, images, class_name):
     train_folder = os.path.join(train_dir, class_name)
     valid_folder = os.path.join(valid_dir, class_name)
     test_folder = os.path.join(test_dir, class_name)
+    
+    original_image.save(os.path.join(test_folder, 'original_image.jpg'))
     
     for i, img in enumerate(images):
         if i < 3:
@@ -88,14 +81,13 @@ def save_images(images, class_name):
 
 # Preprocess image for prediction
 def preprocess_image(image):
-    image = image.resize((224, 224))  # Resize to match the model input
-    image = np.array(image) / 255.0   # Normalize pixel values
-    image = np.expand_dims(image, axis=0)  # Add batch dimension
+    image = image.resize((224, 224))
+    image = np.array(image) / 255.0
+    image = np.expand_dims(image, axis=0)
     return image
 
 # Retrain the model
 def retrain_model():
-    # Update and overwrite class names before retraining
     update_and_overwrite_class_names()
 
     with open('class_names.json', 'r') as f:
@@ -103,7 +95,6 @@ def retrain_model():
 
     num_classes = len(class_names)
     
-    # Prepare data generators
     train_datagen = ImageDataGenerator(
         rescale=1./255,
         shear_range=0.2,
@@ -127,33 +118,40 @@ def retrain_model():
         class_mode='categorical'
     )
 
-    # Load MobileNetV2 model with pre-trained weights and without top layers
+    test_datagen = ImageDataGenerator(rescale=1./255)
+    test_generator = test_datagen.flow_from_directory(
+        test_dir,
+        target_size=(img_height, img_width),
+        batch_size=batch_size,
+        class_mode='categorical'
+    )
+
     base_model = MobileNetV2(weights='imagenet', include_top=False, input_shape=(img_height, img_width, 3))
     x = base_model.output
     x = GlobalAveragePooling2D()(x)
     x = Dense(1024, activation='relu')(x)
     predictions = Dense(num_classes, activation='softmax')(x)
 
-    # Define the model
     model = Model(inputs=base_model.input, outputs=predictions)
 
-    # Freeze the base model layers
     for layer in base_model.layers:
         layer.trainable = False
 
-    # Compile the model
     model.compile(optimizer=Adam(learning_rate=0.0001),
                   loss='categorical_crossentropy',
                   metrics=['accuracy'])
 
-    # Train the model
     model.fit(
         train_generator,
         epochs=5,
         validation_data=valid_generator
     )
 
-    # Save the retrained model
+    # Evaluate the model on the test set
+    test_loss, test_accuracy = model.evaluate(test_generator)
+    st.write(f"Test Loss: {test_loss:.4f}")
+    st.write(f"Test Accuracy: {test_accuracy:.4f}")
+
     model.save('staff_mobilenet_v2_model.h5')
 
 # Streamlit app layout
@@ -161,34 +159,25 @@ st.title("Staff Image Recognition")
 
 st.write("Upload an image of a staff member to get predictions and add new images to the dataset.")
 
-# User input for class name
 class_name = st.text_input("Enter the class name for the new images:")
 
-# Upload image
 uploaded_image = st.file_uploader("Choose an image...", type=["jpg", "jpeg", "png"])
 
-# Create required folders if they don't exist
 create_required_folders()
 
 if uploaded_image is not None and class_name:
-    # Create folders if they don't exist
     create_folders(class_name)
 
-    # Display uploaded image
     image = Image.open(uploaded_image)
     st.image(image, caption='Uploaded Image', use_column_width=True)
 
-    # Augment and save images
     augmented_images = augment_image(image)
-    save_images(augmented_images, class_name)
+    save_images(image, augmented_images, class_name)
 
-    # Retrain the model
     retrain_model()
 
-    # Load the updated model for prediction
     model = tf.keras.models.load_model('staff_mobilenet_v2_model.h5')
 
-    # Preprocess and predict
     processed_image = preprocess_image(image)
     predictions = model.predict(processed_image)
     predicted_class_index = np.argmax(predictions)
@@ -198,5 +187,4 @@ if uploaded_image is not None and class_name:
 
     predicted_class = list(class_names.keys())[predicted_class_index]
 
-    # Display prediction
     st.write(f"Prediction: {predicted_class} (Class Index: {predicted_class_index}) with probability {np.max(predictions):.2f}")
