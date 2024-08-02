@@ -199,4 +199,4 @@ if uploaded_image is not None and class_name:
     predicted_class = list(class_names.keys())[predicted_class_index]
 
     # Display prediction
-    st.write(f"Prediction: {predicted_class} with probability {np.max(predictions):.2f}")
+    st.write(f"Prediction: {predicted_class} (Class Index: {predicted_class_index}) with probability {np.max(predictions):.2f}")
