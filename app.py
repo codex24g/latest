@@ -65,6 +65,10 @@ def augment_image(image, count=30):
     image = np.expand_dims(image, axis=0)
     augmented_images = []
 
+    # Append the original image to the augmented images
+    original_image = array_to_img(image[0])
+    augmented_images.append(original_image)
+
     for _ in range(count):
         augmented_image = datagen.flow(image, batch_size=1)[0]
         augmented_image = array_to_img(augmented_image[0])
@@ -79,12 +83,14 @@ def save_images(images, class_name):
     test_folder = os.path.join(test_dir, class_name)
     
     for i, img in enumerate(images):
-        if i < 3:
-            img.save(os.path.join(test_folder, f'image_{i}.jpg'))
-        elif i < 9:
-            img.save(os.path.join(valid_folder, f'image_{i}.jpg'))
+        if i == 0:
+            img.save(os.path.join(test_folder, f'original_image.jpg'))
+        elif 1 <= i < 3:
+            img.save(os.path.join(test_folder, f'augmented_image_{i-1}.jpg'))
+        elif 3 <= i < 9:
+            img.save(os.path.join(valid_folder, f'image_{i-3}.jpg'))
         else:
-            img.save(os.path.join(train_folder, f'image_{i}.jpg'))
+            img.save(os.path.join(train_folder, f'image_{i-9}.jpg'))
 
 # Preprocess image for prediction
 def preprocess_image(image):
