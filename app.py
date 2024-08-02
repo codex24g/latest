@@ -4,7 +4,6 @@ import numpy as np
 import tensorflow as tf
 import json
 import os
-import shutil
 from tensorflow.keras.preprocessing.image import ImageDataGenerator, img_to_array, array_to_img
 from tensorflow.keras.applications import MobileNetV2
 from tensorflow.keras.layers import Dense, GlobalAveragePooling2D
@@ -37,6 +36,22 @@ def create_folders(class_name):
     os.makedirs(os.path.join(train_dir, class_name), exist_ok=True)
     os.makedirs(os.path.join(valid_dir, class_name), exist_ok=True)
     os.makedirs(os.path.join(test_dir, class_name), exist_ok=True)
+
+# Function to create required folders if they don't exist
+def create_required_folders():
+    # List of all directories to create
+    directories = [train_dir, valid_dir, test_dir]
+    
+    # Create train, valid, and test folders if they don't exist
+    for directory in directories:
+        if not os.path.exists(directory):
+            os.makedirs(directory)
+            st.write(f"Created directory: {directory}")
+
+    # Optionally, check for subdirectories in each directory if needed
+    all_classes = [d for d in os.listdir(train_dir) if os.path.isdir(os.path.join(train_dir, d))]
+    for class_name in all_classes:
+        create_folders(class_name)
 
 # Data augmentation
 def augment_image(image, count=30):
@@ -151,6 +166,9 @@ class_name = st.text_input("Enter the class name for the new images:")
 
 # Upload image
 uploaded_image = st.file_uploader("Choose an image...", type=["jpg", "jpeg", "png"])
+
+# Create required folders if they don't exist
+create_required_folders()
 
 if uploaded_image is not None and class_name:
     # Create folders if they don't exist
