@@ -222,14 +222,21 @@ if uploaded_image is not None and class_name:
             st.error(f"Error loading model: {e}")
 
         processed_image = preprocess_image(image)
+        st.write(f"Processed image shape: {processed_image.shape}")
+        st.write(f"Processed image stats: min={np.min(processed_image)}, max={np.max(processed_image)}")
+
         predictions = model.predict(processed_image)
+        st.write(f"Prediction probabilities: {predictions}")
+
         predicted_class_index = np.argmax(predictions)
-        
+        st.write(f"Predicted class index: {predicted_class_index}")
+
         with open('class_names.json', 'r') as f:
             class_names = json.load(f)
 
-        predicted_class = list(class_names.keys())[predicted_class_index]
+        st.write(f"Class names loaded from class_names.json: {class_names}")
 
+        predicted_class = list(class_names.keys())[predicted_class_index]
         st.write(f"Prediction: {predicted_class} (Class Index: {predicted_class_index}) with probability {np.max(predictions):.2f}")
 
     except Exception as e:
