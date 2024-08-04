@@ -19,26 +19,41 @@ test_dir = 'test'
 img_height, img_width = 224, 224
 batch_size = 8
 
+# Log TensorFlow and Streamlit versions
+st.write(f"TensorFlow version: {tf.__version__}")
+st.write(f"Streamlit version: {st.__version__}")
+
 # Function to update and overwrite class_names.json with current classes
 def update_and_overwrite_class_names():
-    all_classes = [d for d in os.listdir(train_dir) if os.path.isdir(os.path.join(train_dir, d))]
-    class_names = {cls: i for i, cls in enumerate(all_classes)}
-    with open('class_names.json', 'w') as f:
-        json.dump(class_names, f, indent=4)
+    try:
+        all_classes = [d for d in os.listdir(train_dir) if os.path.isdir(os.path.join(train_dir, d))]
+        class_names = {cls: i for i, cls in enumerate(all_classes)}
+        with open('class_names.json', 'w') as f:
+            json.dump(class_names, f, indent=4)
+        st.write("Updated class_names.json")
+    except Exception as e:
+        st.error(f"Error updating class_names.json: {e}")
 
 # Function to create necessary folders
 def create_folders(class_name):
-    os.makedirs(os.path.join(train_dir, class_name), exist_ok=True)
-    os.makedirs(os.path.join(valid_dir, class_name), exist_ok=True)
-    os.makedirs(os.path.join(test_dir, class_name), exist_ok=True)
+    try:
+        os.makedirs(os.path.join(train_dir, class_name), exist_ok=True)
+        os.makedirs(os.path.join(valid_dir, class_name), exist_ok=True)
+        os.makedirs(os.path.join(test_dir, class_name), exist_ok=True)
+        st.write(f"Created folders for class: {class_name}")
+    except Exception as e:
+        st.error(f"Error creating folders for class {class_name}: {e}")
 
 # Function to create required folders if they don't exist
 def create_required_folders():
     directories = [train_dir, valid_dir, test_dir]
     for directory in directories:
         if not os.path.exists(directory):
-            os.makedirs(directory)
-            st.write(f"Created directory: {directory}")
+            try:
+                os.makedirs(directory)
+                st.write(f"Created directory: {directory}")
+            except Exception as e:
+                st.error(f"Error creating directory {directory}: {e}")
 
     all_classes = [d for d in os.listdir(train_dir) if os.path.isdir(os.path.join(train_dir, d))]
     for class_name in all_classes:
@@ -46,113 +61,136 @@ def create_required_folders():
 
 # Data augmentation
 def augment_image(image, count=30):
-    datagen = ImageDataGenerator(
-        rescale=1./255,
-        shear_range=0.2,
-        zoom_range=0.2,
-        horizontal_flip=True
-    )
-    image = img_to_array(image)
-    image = np.expand_dims(image, axis=0)
-    augmented_images = []
+    try:
+        datagen = ImageDataGenerator(
+            rescale=1./255,
+            shear_range=0.2,
+            zoom_range=0.2,
+            horizontal_flip=True
+        )
+        image = img_to_array(image)
+        image = np.expand_dims(image, axis=0)
+        augmented_images = []
 
-    for _ in range(count):
-        augmented_image = datagen.flow(image, batch_size=1)[0]
-        augmented_image = array_to_img(augmented_image[0])
-        augmented_images.append(augmented_image)
-    
-    return augmented_images
+        for _ in range(count):
+            augmented_image = datagen.flow(image, batch_size=1)[0]
+            augmented_image = array_to_img(augmented_image[0])
+            augmented_images.append(augmented_image)
+        
+        st.write(f"Augmented {count} images.")
+        return augmented_images
+    except Exception as e:
+        st.error(f"Error during image augmentation: {e}")
 
 # Save images to respective folders
 def save_images(original_image, images, class_name):
-    train_folder = os.path.join(train_dir, class_name)
-    valid_folder = os.path.join(valid_dir, class_name)
-    test_folder = os.path.join(test_dir, class_name)
-    
-    original_image.save(os.path.join(test_folder, 'original_image.jpg'))
-    
-    for i, img in enumerate(images):
-        if i < 3:
-            img.save(os.path.join(test_folder, f'image_{i}.jpg'))
-        elif i < 9:
-            img.save(os.path.join(valid_folder, f'image_{i}.jpg'))
-        else:
-            img.save(os.path.join(train_folder, f'image_{i}.jpg'))
+    try:
+        train_folder = os.path.join(train_dir, class_name)
+        valid_folder = os.path.join(valid_dir, class_name)
+        test_folder = os.path.join(test_dir, class_name)
+        
+        original_image.save(os.path.join(test_folder, 'original_image.jpg'))
+        
+        for i, img in enumerate(images):
+            if i < 3:
+                img.save(os.path.join(test_folder, f'image_{i}.jpg'))
+            elif i < 9:
+                img.save(os.path.join(valid_folder, f'image_{i}.jpg'))
+            else:
+                img.save(os.path.join(train_folder, f'image_{i}.jpg'))
+        
+        st.write("Images saved successfully.")
+    except Exception as e:
+        st.error(f"Error saving images: {e}")
 
 # Preprocess image for prediction
 def preprocess_image(image):
-    image = image.resize((224, 224))
-    image = np.array(image) / 255.0
-    image = np.expand_dims(image, axis=0)
-    return image
+    try:
+        image = image.resize((224, 224))
+        image = np.array(image) / 255.0
+        image = np.expand_dims(image, axis=0)
+        return image
+    except Exception as e:
+        st.error(f"Error preprocessing image: {e}")
 
 # Retrain the model
 def retrain_model():
-    update_and_overwrite_class_names()
+    try:
+        update_and_overwrite_class_names()
 
-    with open('class_names.json', 'r') as f:
-        class_names = json.load(f)
+        with open('class_names.json', 'r') as f:
+            class_names = json.load(f)
 
-    num_classes = len(class_names)
-    
-    train_datagen = ImageDataGenerator(
-        rescale=1./255,
-        shear_range=0.2,
-        zoom_range=0.2,
-        horizontal_flip=True
-    )
+        num_classes = len(class_names)
+        st.write(f"Number of classes: {num_classes}")
 
-    valid_datagen = ImageDataGenerator(rescale=1./255)
+        train_datagen = ImageDataGenerator(
+            rescale=1./255,
+            shear_range=0.2,
+            zoom_range=0.2,
+            horizontal_flip=True
+        )
 
-    train_generator = train_datagen.flow_from_directory(
-        train_dir,
-        target_size=(img_height, img_width),
-        batch_size=batch_size,
-        class_mode='categorical'
-    )
+        valid_datagen = ImageDataGenerator(rescale=1./255)
 
-    valid_generator = valid_datagen.flow_from_directory(
-        valid_dir,
-        target_size=(img_height, img_width),
-        batch_size=batch_size,
-        class_mode='categorical'
-    )
+        train_generator = train_datagen.flow_from_directory(
+            train_dir,
+            target_size=(img_height, img_width),
+            batch_size=batch_size,
+            class_mode='categorical'
+        )
 
-    test_datagen = ImageDataGenerator(rescale=1./255)
-    test_generator = test_datagen.flow_from_directory(
-        test_dir,
-        target_size=(img_height, img_width),
-        batch_size=batch_size,
-        class_mode='categorical'
-    )
+        valid_generator = valid_datagen.flow_from_directory(
+            valid_dir,
+            target_size=(img_height, img_width),
+            batch_size=batch_size,
+            class_mode='categorical'
+        )
 
-    base_model = MobileNetV2(weights='imagenet', include_top=False, input_shape=(img_height, img_width, 3))
-    x = base_model.output
-    x = GlobalAveragePooling2D()(x)
-    x = Dense(1024, activation='relu')(x)
-    predictions = Dense(num_classes, activation='softmax')(x)
+        test_datagen = ImageDataGenerator(rescale=1./255)
+        test_generator = test_datagen.flow_from_directory(
+            test_dir,
+            target_size=(img_height, img_width),
+            batch_size=batch_size,
+            class_mode='categorical'
+        )
 
-    model = Model(inputs=base_model.input, outputs=predictions)
+        base_model = MobileNetV2(weights='imagenet', include_top=False, input_shape=(img_height, img_width, 3))
+        x = base_model.output
+        x = GlobalAveragePooling2D()(x)
+        x = Dense(1024, activation='relu')(x)
+        predictions = Dense(num_classes, activation='softmax')(x)
 
-    for layer in base_model.layers:
-        layer.trainable = False
+        model = Model(inputs=base_model.input, outputs=predictions)
 
-    model.compile(optimizer=Adam(learning_rate=0.0001),
-                  loss='categorical_crossentropy',
-                  metrics=['accuracy'])
+        for layer in base_model.layers:
+            layer.trainable = False
 
-    model.fit(
-        train_generator,
-        epochs=5,
-        validation_data=valid_generator
-    )
+        model.compile(optimizer=Adam(learning_rate=0.0001),
+                      loss='categorical_crossentropy',
+                      metrics=['accuracy'])
 
-    # Evaluate the model on the test set
-    test_loss, test_accuracy = model.evaluate(test_generator)
-    st.write(f"Test Loss: {test_loss:.4f}")
-    st.write(f"Test Accuracy: {test_accuracy:.4f}")
+        st.write("Starting model training...")
+        history = model.fit(
+            train_generator,
+            epochs=5,
+            validation_data=valid_generator
+        )
 
-    model.save('staff_mobilenet_v2_model.h5')
+        # Log training results
+        st.write(f"Training loss: {history.history['loss'][-1]}")
+        st.write(f"Validation accuracy: {history.history['val_accuracy'][-1]}")
+
+        # Evaluate the model on the test set
+        st.write("Evaluating model on test set...")
+        test_loss, test_accuracy = model.evaluate(test_generator)
+        st.write(f"Test Loss: {test_loss:.4f}")
+        st.write(f"Test Accuracy: {test_accuracy:.4f}")
+
+        model.save('staff_mobilenet_v2_model.h5')
+        st.write("Model saved successfully.")
+    except Exception as e:
+        st.error(f"Error during model retraining: {e}")
 
 # Streamlit app layout
 st.title("Staff Image Recognition")
@@ -168,23 +206,36 @@ create_required_folders()
 if uploaded_image is not None and class_name:
     create_folders(class_name)
 
-    image = Image.open(uploaded_image)
-    st.image(image, caption='Uploaded Image', use_column_width=True)
+    try:
+        image = Image.open(uploaded_image)
+        st.image(image, caption='Uploaded Image', use_column_width=True)
 
-    augmented_images = augment_image(image)
-    save_images(image, augmented_images, class_name)
+        augmented_images = augment_image(image)
+        save_images(image, augmented_images, class_name)
 
-    retrain_model()
+        retrain_model()
 
-    model = tf.keras.models.load_model('staff_mobilenet_v2_model.h5')
+        try:
+            model = tf.keras.models.load_model('staff_mobilenet_v2_model.h5')
+            st.write("Model loaded successfully.")
+        except Exception as e:
+            st.error(f"Error loading model: {e}")
 
-    processed_image = preprocess_image(image)
-    predictions = model.predict(processed_image)
-    predicted_class_index = np.argmax(predictions)
-    
-    with open('class_names.json', 'r') as f:
-        class_names = json.load(f)
+        processed_image = preprocess_image(image)
+        predictions = model.predict(processed_image)
+        predicted_class_index = np.argmax(predictions)
+        
+        with open('class_names.json', 'r') as f:
+            class_names = json.load(f)
 
-    predicted_class = list(class_names.keys())[predicted_class_index]
+        predicted_class = list(class_names.keys())[predicted_class_index]
 
-    st.write(f"Prediction: {predicted_class} (Class Index: {predicted_class_index}) with probability {np.max(predictions):.2f}")
+        st.write(f"Prediction: {predicted_class} (Class Index: {predicted_class_index}) with probability {np.max(predictions):.2f}")
+
+    except Exception as e:
+        st.error(f"Error processing the uploaded image: {e}")
+else:
+    if uploaded_image is None:
+        st.write("Please upload an image.")
+    if not class_name:
+        st.write("Please enter a class name.")
