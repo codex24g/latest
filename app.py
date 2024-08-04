@@ -27,6 +27,7 @@ st.write(f"Streamlit version: {st.__version__}")
 def update_and_overwrite_class_names():
     try:
         all_classes = [d for d in os.listdir(train_dir) if os.path.isdir(os.path.join(train_dir, d))]
+        all_classes.sort()  # Sort class names alphabetically to ensure consistency
         class_names = {cls: i for i, cls in enumerate(all_classes)}
         with open('class_names.json', 'w') as f:
             json.dump(class_names, f, indent=4)
